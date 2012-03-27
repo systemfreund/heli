@@ -19,7 +19,7 @@ def read_pulse(filename):
                 break
 
 def near_one(value):
-    return value <= (1.0 + EPSILON) and value >= (1.0 - EPSILON)
+    return (1.0 + EPSILON) >= value >= (1.0 - EPSILON)
 
 def is_zero(pulse):
     return near_one(pulse[0] / 16.0) #and near_one(pulse[1] / 16.0)
