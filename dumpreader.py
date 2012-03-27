@@ -15,7 +15,6 @@ def stream_data_from_file(filename):
             pulse = f.read(2)
             blank = f.read(2)
             if pulse and blank:
-                #yield to_msec(pulse), to_msec(blank)
                 yield to_value(pulse), to_value(blank)
             else:
                 break
@@ -96,13 +95,14 @@ class PayloadState(State):
         
     def parse(self, pulse, packet_listener):
         if self.is_zero(pulse):
-            self.packet += "0"
-        elif self.is_one(pulse):
             self.packet += "1"
+        elif self.is_one(pulse):
+            self.packet += "0"
         else:
             raise StreamSyncError(pulse)
         
         if len(self.packet) == 32:
+            #print "Packet: ", self.packet
             packet_listener(self.packet)
             self.parser.set_state(PreambleState(self.parser))
     
@@ -121,11 +121,41 @@ class PulseParser(object):
             except StreamSyncError as e:
                 print e, " state=", self.state
                 self.set_state(PreambleState(self))
+
+#
+# Main program
+#
+last_packet = None
+last_packet_repeated_count = 0
+header_repeat = 0
            
 def on_new_packet(packet):
-    print "Packet: ", packet, " == ", hex(int(packet, 2))
- 
- 
+    global last_packet, last_packet_repeated_count, header_repeat
+    #packet = "1111111ZZZZ101001000100001000CC1"
+    
+    if packet == last_packet:
+        last_packet_repeated_count += 1
+        return
+
+    if last_packet_repeated_count > 0:
+        print "Last packet repeated ", last_packet_repeated_count, "times"
+        
+    last_packet_repeated_count = 0
+    last_packet = packet
+    
+    # Decompose the binary string
+    tail = packet[-1]
+    channel = packet[-3:-1]
+    lift = packet[:7]
+    zero = packet[7:11]
+    p = packet[11:-3]
+
+    if header_repeat % 20 == 0:
+        print "LIFT|ZERO|------------------|CH|1"
+        
+    print hex(int(lift, 2)), zero, p, channel, tail
+    header_repeat += 1
+
 #pp = PulseParser(stream_data_from_file('/Users/yildiz/test_000.bin'))
 pp = PulseParser(stream_data_from_serial("/dev/cu.usbmodem00000001"))
 eof = pp.parse(on_new_packet)
